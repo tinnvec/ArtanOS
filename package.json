@@ -1,6 +1,6 @@
 {
-  "name": "screeps-typescript-starter",
-  "version": "3.0.0",
+  "name": "artanos",
+  "version": "0.0.1",
   "description": "",
   "main": "index.js",
   "//": "If you add or change the names of destinations in screeps.json, make sure you update these scripts to reflect the changes",
