@@ -1,5 +1,11 @@
-import { LogLevel } from 'Enums';
-import { MINIMUM_LOG_LEVEL } from 'Settings';
+import { MINIMUM_LOG_LEVEL } from 'settings';
+
+export enum LogLevel {
+  Debug = 0,
+  Info,
+  Warning,
+  Error
+}
 
 export class Logger {
   public static debug(message: string) {
