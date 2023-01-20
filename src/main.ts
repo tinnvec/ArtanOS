@@ -1,5 +1,5 @@
+import { Kernel } from 'Kernel';
 import { ErrorMapper } from 'utils/ErrorMapper';
-import { Kernel } from 'kernel/Kernel';
 import { Logger } from 'utils/Logger';
 
 declare global {
@@ -19,4 +19,6 @@ export const loop = ErrorMapper.wrapLoop(() => {
   Kernel.load();
 
   Kernel.run();
+
+  Logger.debug(`--- End Tick ---`);
 });

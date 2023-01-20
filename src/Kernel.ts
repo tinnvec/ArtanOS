@@ -1,14 +1,63 @@
-import { Process, ProcessPriority, ProcessStatus } from './Process';
-import { ProcessRegistry } from './ProcessRegistry';
+import { Logger } from "utils/Logger";
+
+//#region Enums
+
+export enum ProcessPriority {
+  Always = 0,
+  High,
+  Normal,
+  Low
+}
+
+enum ProcessStatus {
+  Dead = 0,
+  Alive,
+  Asleep
+}
+
+//#endregion
+
+//#region Interfaces
+
+interface ProcessConstructor {
+  new (parentPID: number, pid: number): Process;
+}
+
+interface ProcessMemory {
+  [index:string]: any
+}
+
+interface ProcessSleep {
+  start: number;
+  duration: number;
+}
+
+export interface Process {
+  memory: ProcessMemory;
+  parentPID: number;
+  pid: number;
+  priority?: ProcessPriority;
+  sleepInfo?: ProcessSleep;
+  status: ProcessStatus;
+}
+
+//#endregion
+
+// Class decorator to register Process
+export function registerProcess(constructor: ProcessConstructor) {
+  ProcessRegistry.register(constructor);
+}
 
 export class Kernel {
   public static processTable: { [pid: string]: Process } = {};
 
+  private static queueAlways: Process[] = [];
   private static queueHigh: Process[] = [];
   private static queueNormal: Process[] = [];
   private static queueLow: Process[] = [];
 
   public static addProcess<T extends Process>(process: T, priority = ProcessPriority.Normal): T {
+    Logger.debug(`Adding ${process.constructor.name}`);
     if (process.pid === undefined) {
       process.pid = this.getNextPID();
     }
@@ -76,6 +125,7 @@ export class Kernel {
   }
 
   public static run() {
+    this.runQueue(this.queueAlways);
     this.runQueue(this.queueHigh);
     this.runQueue(this.queueNormal);
     this.runQueue(this.queueLow);
@@ -84,6 +134,8 @@ export class Kernel {
   }
 
   public static sleepProcess(process: Process, ticks: number) {
+    Logger.debug(`Sleeping [${process.pid}] ${process.constructor.name} for ${ticks} ticks`);
+
     process.status = ProcessStatus.Asleep;
     process.sleepInfo = { start: Game.time, duration: ticks };
 
@@ -111,6 +163,7 @@ export class Kernel {
         continue;
       }
 
+      Logger.debug(`Loading [${pid}] ${processName}`);
       const process = new processClass(parentPID, pid);
       process.setMemory(this.getProcessMemory(pid));
       process.priority = priority;
@@ -123,6 +176,9 @@ export class Kernel {
       }
 
       switch (process.priority) {
+        case ProcessPriority.Always:
+          this.queueAlways.push(process);
+          break;
         case ProcessPriority.High:
           this.queueHigh.push(process);
           break;
@@ -136,15 +192,18 @@ export class Kernel {
   }
 
   private static memtest() {
-    if (!Memory.pidCounter) {
+    if (Memory.pidCounter === undefined || typeof(Memory.pidCounter) != 'number') {
+      Logger.debug('Resetting Memory.pidCounter');
       Memory.pidCounter = 0;
     }
 
-    if (!Memory.processMemory) {
+    if (!Memory.processMemory || typeof(Memory.processMemory) != 'object') {
+      Logger.debug('Resetting Memory.processMemory');
       Memory.processMemory = {};
     }
 
-    if (!Memory.processTable) {
+    if (!Memory.processTable || !Array.isArray(Memory.processTable)) {
+      Logger.debug('Resetting Memory.processTable');
       Memory.processTable = [];
     }
   }
@@ -152,6 +211,7 @@ export class Kernel {
   private static reboot() {
     this.memtest();
 
+    this.queueAlways = [];
     this.queueHigh = [];
     this.queueNormal = [];
     this.queueLow = [];
@@ -164,23 +224,21 @@ export class Kernel {
       let process = queue.shift();
 
       while (process) {
-        // Check parent Process
         if (!this.getProcessByPID(process.parentPID)) {
           this.killProcess(process.pid);
         }
 
-        // Check Sleep status
         if (
-          process.status === ProcessStatus.Asleep &&
-          process.sleepInfo &&
-          process.sleepInfo.start + process.sleepInfo.duration < Game.time &&
-          process.sleepInfo.duration !== -1
+          process.status === ProcessStatus.Asleep
+          && process.sleepInfo
+          && process.sleepInfo.start + process.sleepInfo.duration < Game.time
         ) {
           process.status = ProcessStatus.Alive;
           process.sleepInfo = undefined;
         }
 
         if (process.status === ProcessStatus.Alive) {
+          Logger.debug(`Running [${process.pid}] ${process.constructor.name}`);
           process.run();
         }
 
@@ -196,8 +254,40 @@ export class Kernel {
       Memory.processMemory[proc.pid] = proc.memory;
     }
 
-    Memory.processTable = _.map(liveProcs, _ => [_.pid, _.parentPID, _.constructor.name, _.priority]);
+    Memory.processTable = _.map(liveProcs, _ => [_.pid, _.parentPID, _.constructor.name, _.priority, _.sleepInfo]);
   }
 
   //#endregion
+}
+
+export abstract class Process {
+  constructor(parentPID: number, pid = Kernel.getNextPID()) {
+    this.parentPID = parentPID;
+    this.pid = pid;
+    this.memory = {};
+    this.status = ProcessStatus.Alive;
+  }
+
+  public abstract run(): void;
+
+  public setMemory(memory: ProcessMemory) {
+    this.memory = memory;
+  }
+
+  public stop() {
+    Kernel.killProcess(this.pid);
+  }
+}
+
+class ProcessRegistry {
+  private static readonly registry: { [processName: string]: ProcessConstructor | undefined } = {};
+
+  public static fetch(processName: string) {
+    return this.registry[processName];
+  }
+
+  public static register(constructor: ProcessConstructor) {
+    Logger.debug(`Registering ${constructor.name}`);
+    this.registry[constructor.name] = constructor;
+  }
 }
