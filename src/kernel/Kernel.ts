@@ -23,8 +23,6 @@ export class Kernel {
   }
 
   public static getNextPID() {
-    Memory.pidCounter = Memory.pidCounter || 0;
-
     // Find next unused PID
     while (this.getProcessByPID(Memory.pidCounter) !== undefined) {
       // Loop back to 0 to avoid overflow
@@ -43,8 +41,9 @@ export class Kernel {
   }
 
   public static getProcessMemory(pid: number) {
-    Memory.processMemory = Memory.processMemory || {};
-    Memory.processMemory[pid] = Memory.processMemory[pid] || {};
+   if (!Memory.processMemory[pid]) {
+    Memory.processMemory[pid] = {};
+   }
 
     return Memory.processMemory[pid];
   }
@@ -105,8 +104,6 @@ export class Kernel {
   }
 
   private static loadProcessTable() {
-    Memory.processTable = Memory.processTable || [];
-
     for (const [pid, parentPID, processName, priority, ...remaining] of Memory.processTable) {
       const processClass = ProcessRegistry.fetch(processName);
 
@@ -138,7 +135,23 @@ export class Kernel {
     }
   }
 
+  private static memtest() {
+    if (!Memory.pidCounter) {
+      Memory.pidCounter = 0;
+    }
+
+    if (!Memory.processMemory) {
+      Memory.processMemory = {};
+    }
+
+    if (!Memory.processTable) {
+      Memory.processTable = [];
+    }
+  }
+
   private static reboot() {
+    this.memtest();
+
     this.queueHigh = [];
     this.queueNormal = [];
     this.queueLow = [];
