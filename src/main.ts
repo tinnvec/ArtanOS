@@ -1,4 +1,5 @@
-import { Kernel } from 'Kernel';
+import { Kernel, ProcessPriority } from 'Kernel';
+import { HierarchProcess } from 'processes/HierarchProcess';
 import { ErrorMapper } from 'utils/ErrorMapper';
 import { Logger } from 'utils/Logger';
 
@@ -17,6 +18,11 @@ export const loop = ErrorMapper.wrapLoop(() => {
   Logger.debug(`--- Tick ${Game.time} ---`);
 
   Kernel.load();
+
+  if (!Kernel.getProcessByPID(0)) {
+    const proc = new HierarchProcess(0, 0);
+    Kernel.addProcess(proc, ProcessPriority.Always);
+  }
 
   Kernel.run();
 
