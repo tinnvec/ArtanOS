@@ -192,6 +192,10 @@ export class Kernel {
   }
 
   private static memtest() {
+    if (!Memory.mainBases || typeof(Memory.mainBases) != 'object') {
+      Logger.debug('Resetting Memory.mainBases');
+      Memory.mainBases = {};
+    }
     if (Memory.pidCounter === undefined || typeof(Memory.pidCounter) != 'number') {
       Logger.debug('Resetting Memory.pidCounter');
       Memory.pidCounter = 0;
