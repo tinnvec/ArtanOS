@@ -7,8 +7,13 @@ declare global {
   // Memory extensions
   interface Memory {
     pidCounter: number;
-    processMemory: any;
-    processTable: any;
+    processMemory: { [index: string]: any };
+    processTable: any[];
+    mainBases: {
+      [index: string]: {
+        pid: number
+      }
+    };
   }
 }
 
@@ -21,7 +26,7 @@ export const loop = ErrorMapper.wrapLoop(() => {
 
   if (!Kernel.getProcessByPID(0)) {
     const proc = new HierarchProcess(0, 0);
-    Kernel.addProcess(proc, ProcessPriority.Always);
+    Kernel.addProcess(proc, {}, ProcessPriority.Always);
   }
 
   Kernel.run();
