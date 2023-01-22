@@ -176,10 +176,6 @@ export class Kernel {
   }
 
   private static memtest() {
-    if (!Memory.mainBases || typeof(Memory.mainBases) != 'object') {
-      Logger.debug('Resetting Memory.mainBases');
-      Memory.mainBases = {};
-    }
     if (Memory.pidCounter === undefined || typeof(Memory.pidCounter) != 'number') {
       Logger.debug('Resetting Memory.pidCounter');
       Memory.pidCounter = 0;
@@ -219,30 +215,30 @@ export class Kernel {
 
       const queue = this.processQueue[priority];
 
-    while (queue.length > 0) {
-      let process = queue.shift();
+      while (queue.length > 0) {
+        let process = queue.shift();
 
-      while (process) {
-        if (!this.getProcessByPID(process.parentPID)) {
+        while (process) {
+          if (!this.getProcessByPID(process.parentPID)) {
             Logger.debug(`Killing [${process.pid}] ${process.constructor.name}, can't find parent [${process.parentPID}]`);
-          this.killProcess(process.pid);
-        }
+            this.killProcess(process.pid);
+          }
 
-        if (
-          process.status === ProcessStatus.Asleep
-          && process.sleepInfo
-          && process.sleepInfo.start + process.sleepInfo.duration < Game.time
-        ) {
-          process.status = ProcessStatus.Alive;
-          process.sleepInfo = undefined;
-        }
+          if (
+            process.status === ProcessStatus.Asleep
+            && process.sleepInfo
+            && process.sleepInfo.start + process.sleepInfo.duration < Game.time
+          ) {
+            process.status = ProcessStatus.Alive;
+            process.sleepInfo = undefined;
+          }
 
-        if (process.status === ProcessStatus.Alive) {
-          Logger.debug(`Running [${process.pid}] ${process.constructor.name}`);
-          process.run();
-        }
+          if (process.status === ProcessStatus.Alive) {
+            Logger.debug(`Running [${process.pid}] ${process.constructor.name}`);
+            process.run();
+          }
 
-        process = queue.shift();
+          process = queue.shift();
         }
       }
     }

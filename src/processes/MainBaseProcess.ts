@@ -1,18 +1,24 @@
-import { Kernel, Process, registerProcess } from 'Kernel';
+import { Process, registerProcess } from 'Kernel';
 import { Logger } from 'utils/Logger';
+
+type MainBaseProcessMemory = {
+  roomName: string;
+}
 
 @registerProcess
 export class MainBaseProcess extends Process {
-  room?: Room;
+  public memory: MainBaseProcessMemory = {
+    roomName: ''
+  };
+
+  private room?: Room;
 
   public run(): void {
     if (this.memory.roomName === '') {
       Logger.debug('No roomName in MainBaseProcess memory, killing process');
-      Kernel.killProcess(this.pid);
-      return;
+      return this.stop();
     }
 
-    if (!this.room) {
       this.room = Game.rooms[this.memory.roomName];
     }
 
