@@ -26,7 +26,7 @@ export const loop = ErrorMapper.wrapLoop(() => {
 
   if (!Kernel.getProcessByPID(0)) {
     Kernel.addProcess(
-      new HierarchProcess(0),
+      new HierarchProcess(0, 0),
       { mainBases: [] },
       ProcessPriority.Always
     );

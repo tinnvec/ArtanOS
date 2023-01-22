@@ -221,7 +221,7 @@ export class Kernel {
         while (process) {
           if (!this.getProcessByPID(process.parentPID)) {
             Logger.debug(`Killing [${process.pid}] ${process.constructor.name}, can't find parent [${process.parentPID}]`);
-            this.killProcess(process.pid);
+            process.stop();
           }
 
           if (
