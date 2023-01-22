@@ -51,10 +51,7 @@ export function registerProcess(constructor: ProcessConstructor) {
 export class Kernel {
   public static processTable: { [pid: string]: Process } = {};
 
-  private static queueAlways: Process[] = [];
-  private static queueHigh: Process[] = [];
-  private static queueNormal: Process[] = [];
-  private static queueLow: Process[] = [];
+  private static processQueue: { [key in ProcessPriority]: Process[] }
 
   public static addProcess<T extends Process>(process: T, memory: Object = {}, priority = ProcessPriority.Normal): T {
     Logger.debug(`Adding ${process.constructor.name}`);
@@ -125,11 +122,7 @@ export class Kernel {
   }
 
   public static run() {
-    this.runQueue(this.queueAlways);
-    this.runQueue(this.queueHigh);
-    this.runQueue(this.queueNormal);
-    this.runQueue(this.queueLow);
-
+    this.runQueue();
     this.storeProcessTable();
   }
 
@@ -175,19 +168,7 @@ export class Kernel {
         process.status = ProcessStatus.Asleep;
       }
 
-      switch (process.priority) {
-        case ProcessPriority.Always:
-          this.queueAlways.push(process);
-          break;
-        case ProcessPriority.High:
-          this.queueHigh.push(process);
-          break;
-        case ProcessPriority.Normal:
-          this.queueNormal.push(process);
-          break;
-        default:
-          this.queueLow.push(process);
-      }
+      this.processQueue[process.priority || ProcessPriority.Normal].push(process);
     }
   }
 
@@ -215,20 +196,32 @@ export class Kernel {
   private static reboot() {
     this.memtest();
 
-    this.queueAlways = [];
-    this.queueHigh = [];
-    this.queueNormal = [];
-    this.queueLow = [];
+    this.processQueue = {
+      [ProcessPriority.Always]: new Array<Process>(),
+      [ProcessPriority.High]: new Array<Process>(),
+      [ProcessPriority.Normal]: new Array<Process>(),
+      [ProcessPriority.Low]: new Array<Process>()
+    }
 
     this.processTable = {};
   }
 
-  private static runQueue(queue: Process[]) {
+  private static runQueue() {
+    for (const item in ProcessPriority) {
+      const priority: ProcessPriority = Number(item);
+
+      if (isNaN(priority)) {
+        continue;
+      }
+
+      const queue = this.processQueue[priority];
+
     while (queue.length > 0) {
       let process = queue.shift();
 
       while (process) {
         if (!this.getProcessByPID(process.parentPID)) {
+            Logger.debug(`Killing [${process.pid}] ${process.constructor.name}, can't find parent [${process.parentPID}]`);
           this.killProcess(process.pid);
         }
 
@@ -247,6 +240,7 @@ export class Kernel {
         }
 
         process = queue.shift();
+        }
       }
     }
   }
