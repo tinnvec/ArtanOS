@@ -59,9 +59,8 @@ export class Kernel {
       process.pid = this.getNextPID();
     }
 
-    process.setMemory(memory);
     process.priority = priority;
-
+    process.setMemory(memory);
     Memory.processMemory[process.pid] = memory;
     this.processTable[process.pid] = process;
 
@@ -168,7 +167,11 @@ export class Kernel {
         process.status = ProcessStatus.Asleep;
       }
 
-      this.processQueue[process.priority || ProcessPriority.Normal].push(process);
+      if (process.priority === undefined) {
+        process.priority = ProcessPriority.Normal;
+      }
+
+      this.processQueue[process.priority].push(process);
     }
   }
 
