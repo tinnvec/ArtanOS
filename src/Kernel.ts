@@ -259,11 +259,10 @@ export class Kernel {
 }
 
 export abstract class Process {
-  constructor(parentPID: number, pid = Kernel.getNextPID()) {
+  constructor(parentPID: number, pid = Kernel.getNextPID(), status = ProcessStatus.Alive) {
     this.parentPID = parentPID;
     this.pid = pid;
-    this.memory = {};
-    this.status = ProcessStatus.Alive;
+    this.status = status;
   }
 
   public abstract run(): void;
