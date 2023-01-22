@@ -1,5 +1,14 @@
 import { Logger } from 'utils/Logger';
 
+//#region Types
+
+type ProcessSleep = {
+  start: number;
+  duration: number;
+}
+
+//#endregion
+
 //#region Enums
 
 export enum ProcessPriority {
@@ -20,7 +29,7 @@ enum ProcessStatus {
 //#region Interfaces
 
 export interface Process {
-  memory: ProcessMemory;
+  memory: Object;
   parentPID: number;
   pid: number;
   priority?: ProcessPriority;
@@ -28,17 +37,8 @@ export interface Process {
   status: ProcessStatus;
 }
 
-export interface ProcessMemory {
-  [index:string]: any
-}
-
 interface ProcessConstructor {
   new (parentPID: number, pid: number): Process;
-}
-
-interface ProcessSleep {
-  start: number;
-  duration: number;
 }
 
 //#endregion
@@ -56,17 +56,17 @@ export class Kernel {
   private static queueNormal: Process[] = [];
   private static queueLow: Process[] = [];
 
-  public static addProcess<T extends Process>(process: T, memory: ProcessMemory = {}, priority = ProcessPriority.Normal): T {
+  public static addProcess<T extends Process>(process: T, memory: Object = {}, priority = ProcessPriority.Normal): T {
     Logger.debug(`Adding ${process.constructor.name}`);
     if (process.pid === undefined) {
       process.pid = this.getNextPID();
     }
 
+    process.setMemory(memory);
     process.priority = priority;
-    this.processTable[process.pid] = process;
+
     Memory.processMemory[process.pid] = memory;
-    process.setMemory(this.getProcessMemory(process.pid));
-    process.status = ProcessStatus.Alive;
+    this.processTable[process.pid] = process;
 
     return process;
   }
@@ -274,7 +274,7 @@ export abstract class Process {
 
   public abstract run(): void;
 
-  public setMemory(memory: ProcessMemory) {
+  public setMemory(memory: Object) {
     this.memory = memory;
   }
 
