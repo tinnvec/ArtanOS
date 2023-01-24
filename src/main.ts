@@ -9,11 +9,6 @@ declare global {
     pidCounter: number;
     processMemory: { [index: string]: any };
     processTable: any[];
-    mainBases: {
-      [index: string]: {
-        pid: number
-      }
-    };
   }
 }
 

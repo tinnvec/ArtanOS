@@ -31,14 +31,14 @@ export class HierarchProcess extends Process {
 
         if (!proc) {
           delete this.memory.mainBasesProcesses[roomName];
-        continue;
-      }
+          continue;
+        }
 
         this._mainBaseProcesses.push(proc);
-    }
+      }
 
       return this._mainBaseProcesses;
-  }
+    }
 
     for (const room of this.ownedRooms) {
       Logger.debug(`Creating MainBaseProcess for ${room.name}`);
@@ -46,16 +46,16 @@ export class HierarchProcess extends Process {
       Kernel.addProcess(proc, { roomName: room.name }, ProcessPriority.High);
       this._mainBaseProcesses.push(proc);
       this.memory.mainBasesProcesses[room.name] = { pid: proc.pid }
-      }
+    }
 
     return this._mainBaseProcesses;
-    }
+  }
 
   private _ownedRooms?: Room[];
   private get ownedRooms(): Room[] {
     if (this._ownedRooms) {
       return this._ownedRooms;
-  }
+    }
 
     if (Game.rooms.sim) {
       this._ownedRooms = [Game.rooms.sim];
