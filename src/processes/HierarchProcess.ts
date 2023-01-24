@@ -5,7 +5,7 @@ import { MainBaseProcess } from './MainBaseProcess';
 //#region Types
 
 type HierarchProcessMemory = {
-  mainBasesProcesses: { [roomName: string]: { pid: number } }
+  mainBaseProcesses: { [roomName: string]: { pid: number } }
 }
 
 //#region
@@ -13,7 +13,7 @@ type HierarchProcessMemory = {
 @registerProcess
 export class HierarchProcess extends Process {
   public memory: HierarchProcessMemory = {
-    mainBasesProcesses: {}
+    mainBaseProcesses: {}
   };
 
   private _mainBaseProcesses?: MainBaseProcess[];
@@ -23,14 +23,14 @@ export class HierarchProcess extends Process {
     }
 
     this._mainBaseProcesses = [];
-    const mainBaseNames = Object.keys(this.memory.mainBasesProcesses);
+    const mainBaseNames = Object.keys(this.memory.mainBaseProcesses);
 
     if (mainBaseNames.length > 0) {
       for (const roomName of mainBaseNames) {
-        const proc = Kernel.getProcessByPID(this.memory.mainBasesProcesses[roomName].pid) as MainBaseProcess;
+        const proc = Kernel.getProcessByPID(this.memory.mainBaseProcesses[roomName].pid) as MainBaseProcess;
 
         if (!proc) {
-          delete this.memory.mainBasesProcesses[roomName];
+          delete this.memory.mainBaseProcesses[roomName];
           continue;
         }
 
@@ -45,7 +45,7 @@ export class HierarchProcess extends Process {
       const proc = new MainBaseProcess(this.pid);
       Kernel.addProcess(proc, { roomName: room.name }, ProcessPriority.High);
       this._mainBaseProcesses.push(proc);
-      this.memory.mainBasesProcesses[room.name] = { pid: proc.pid }
+      this.memory.mainBaseProcesses[room.name] = { pid: proc.pid }
     }
 
     return this._mainBaseProcesses;

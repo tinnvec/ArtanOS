@@ -1,5 +1,3 @@
-import { MINIMUM_LOG_LEVEL } from 'settings';
-
 export enum LogLevel {
   Debug = 0,
   Info,
@@ -35,7 +33,7 @@ export class Logger {
   }
 
   private static writeLog(logLevel: LogLevel, message: string) {
-    if (logLevel < MINIMUM_LOG_LEVEL) {
+    if (logLevel < Memory.settings.minimumLogLevel) {
       return;
     }
 

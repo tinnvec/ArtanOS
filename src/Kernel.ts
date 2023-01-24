@@ -1,3 +1,4 @@
+import { MINIMUM_LOG_LEVEL } from 'defaults';
 import { Logger } from 'utils/Logger';
 
 //#region Types
@@ -176,19 +177,30 @@ export class Kernel {
   }
 
   private static memtest() {
+    // Core
+
     if (Memory.pidCounter === undefined || typeof(Memory.pidCounter) != 'number') {
-      Logger.debug('Resetting Memory.pidCounter');
       Memory.pidCounter = 0;
     }
 
     if (!Memory.processMemory || typeof(Memory.processMemory) != 'object') {
-      Logger.debug('Resetting Memory.processMemory');
       Memory.processMemory = {};
     }
 
     if (!Memory.processTable || !Array.isArray(Memory.processTable)) {
-      Logger.debug('Resetting Memory.processTable');
       Memory.processTable = [];
+    }
+
+    // Settings
+
+    if (!Memory.settings || typeof(Memory.settings) != 'object') {
+      Memory.settings = {
+        minimumLogLevel: MINIMUM_LOG_LEVEL
+      };
+    }
+
+    if (!Memory.settings.minimumLogLevel || typeof(Memory.settings.minimumLogLevel) != 'number') {
+      Memory.settings.minimumLogLevel = MINIMUM_LOG_LEVEL;
     }
   }
 
