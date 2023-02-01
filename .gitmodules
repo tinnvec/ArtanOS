@@ -1,0 +1,6 @@
+[submodule "src/extensions/RoomVisual"]
+	path = src/extensions/RoomVisual
+	url = https://github.com/screepers/RoomVisual
+[submodule "RoomVisual"]
+	path = RoomVisual
+	url = https://github.com/screepers/RoomVisual
