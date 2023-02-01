@@ -1,4 +1,3 @@
-import { MINIMUM_LOG_LEVEL } from 'defaults';
 import { Logger } from 'utils/Logger';
 
 //#region Types
@@ -49,49 +48,54 @@ export function registerProcess(constructor: ProcessConstructor) {
   ProcessRegistry.register(constructor);
 }
 
-export class Kernel {
-  public static processTable: { [pid: string]: Process } = {};
+export abstract class Process {
+  constructor(parentPID: number, pid = -1, status = ProcessStatus.Alive) {
+    this.parentPID = parentPID;
+    this.pid = pid;
+    this.status = status;
+  }
 
-  private static processQueue: { [key in ProcessPriority]: Process[] }
+  public abstract run(): void;
+
+  public setMemory(memory: Object) {
+    this.memory = memory;
+  }
+}
+
+class ProcessRegistry {
+  private static readonly registry: { [processName: string]: ProcessConstructor | undefined } = {};
+
+  public static fetch(processName: string) {
+    return this.registry[processName];
+  }
+
+  public static register(constructor: ProcessConstructor) {
+    this.registry[constructor.name] = constructor;
+  }
+}
+
+export class Kernel {
+  private static processQueue: Process[] = [];
+  private static processTable: { [pid: string]: Process } = {};
 
   public static addProcess<T extends Process>(process: T, memory: Object = {}, priority = ProcessPriority.Normal): T {
-    Logger.debug(`Adding ${process.constructor.name}`);
-    if (process.pid === undefined) {
+    if (process.pid === -1) {
       process.pid = this.getNextPID();
     }
 
-    process.priority = priority;
-    process.setMemory(memory);
-    Memory.processMemory[process.pid] = memory;
-    this.processTable[process.pid] = process;
+    Logger.debug(`Adding [${process.pid}] ${process.constructor.name}`);
 
+    process.priority = priority;
+
+    Memory.processMemory[process.pid] = memory;
+    process.setMemory(memory);
+
+    this.processTable[process.pid] = process;
     return process;
   }
 
-  public static getNextPID() {
-    // Find next unused PID
-    while (this.getProcessByPID(Memory.pidCounter) !== undefined) {
-      // Loop back to 0 to avoid overflow
-      if (Memory.pidCounter >= Number.MAX_SAFE_INTEGER) {
-        Memory.pidCounter = 0;
-      }
-
-      Memory.pidCounter++;
-    }
-
-    return Memory.pidCounter;
-  }
-
-  public static getProcessByPID(pid: number) {
-    return this.processTable[pid];
-  }
-
-  public static getProcessMemory(pid: number) {
-   if (!Memory.processMemory[pid]) {
-    Memory.processMemory[pid] = {};
-   }
-
-    return Memory.processMemory[pid];
+  public static getProcessByPID<T extends Process>(pid: number): T | undefined {
+    return this.processTable[pid] as T;
   }
 
   public static killProcess(pid: number) {
@@ -115,7 +119,8 @@ export class Kernel {
   }
 
   public static load() {
-    this.reboot();
+    this.processTable = {};
+    this.processQueue = [];
 
     this.loadProcessTable();
     this.garbageCollection();
@@ -148,7 +153,31 @@ export class Kernel {
     Memory.rooms = _.pick(Memory.rooms, (_: any, k: string) => Game.rooms[k] !== undefined);
   }
 
+  private static getNextPID() {
+    // Find next unused PID
+    while (this.getProcessByPID(Memory.pidCounter) !== undefined) {
+      // Loop back to 0 to avoid overflow
+      if (Memory.pidCounter >= Number.MAX_SAFE_INTEGER) {
+        Memory.pidCounter = 0;
+      }
+
+      Memory.pidCounter++;
+    }
+
+    return Memory.pidCounter;
+  }
+
+  private static getProcessMemory(pid: number) {
+    if (!Memory.processMemory[pid]) {
+     Memory.processMemory[pid] = {};
+    }
+
+     return Memory.processMemory[pid];
+   }
+
   private static loadProcessTable() {
+    const priorityQueue: Process[][] = [[], [], [], []];
+
     for (const [pid, parentPID, processName, priority, ...remaining] of Memory.processTable) {
       const processClass = ProcessRegistry.fetch(processName);
 
@@ -156,7 +185,6 @@ export class Kernel {
         continue;
       }
 
-      Logger.debug(`Loading [${pid}] ${processName}`);
       const process = new processClass(parentPID, pid);
       process.setMemory(this.getProcessMemory(pid));
       process.priority = priority;
@@ -172,86 +200,46 @@ export class Kernel {
         process.priority = ProcessPriority.Normal;
       }
 
-      this.processQueue[process.priority].push(process);
-    }
-  }
-
-  private static memtest() {
-    // Core
-
-    if (Memory.pidCounter === undefined || typeof(Memory.pidCounter) != 'number') {
-      Memory.pidCounter = 0;
+      priorityQueue[process.priority].push(process);
     }
 
-    if (!Memory.processMemory || typeof(Memory.processMemory) != 'object') {
-      Memory.processMemory = {};
+    for (const subQueue of priorityQueue) {
+      this.processQueue = this.processQueue.concat(subQueue);
     }
-
-    if (!Memory.processTable || !Array.isArray(Memory.processTable)) {
-      Memory.processTable = [];
-    }
-
-    // Settings
-
-    if (!Memory.settings || typeof(Memory.settings) != 'object') {
-      Memory.settings = {
-        minimumLogLevel: MINIMUM_LOG_LEVEL
-      };
-    }
-
-    if (!Memory.settings.minimumLogLevel || typeof(Memory.settings.minimumLogLevel) != 'number') {
-      Memory.settings.minimumLogLevel = MINIMUM_LOG_LEVEL;
-    }
-  }
-
-  private static reboot() {
-    this.memtest();
-
-    this.processQueue = {
-      [ProcessPriority.Always]: new Array<Process>(),
-      [ProcessPriority.High]: new Array<Process>(),
-      [ProcessPriority.Normal]: new Array<Process>(),
-      [ProcessPriority.Low]: new Array<Process>()
-    }
-
-    this.processTable = {};
   }
 
   private static runQueue() {
-    for (const item in ProcessPriority) {
-      const priority: ProcessPriority = Number(item);
+    let process: Process | undefined = undefined;
 
-      if (isNaN(priority)) {
+    while (this.processQueue.length > 0) {
+      if (!Game.rooms.sim && Game.cpu.getUsed() > Game.cpu.limit) {
+        return;
+      }
+
+      process = this.processQueue.shift();
+
+      if (!process) {
         continue;
       }
 
-      const queue = this.processQueue[priority];
+      if (!this.getProcessByPID(process.parentPID)) {
+        Logger.warning(`Killing [${process.pid}] ${process.constructor.name}, can't find parent [${process.parentPID}]`);
+        this.killProcess(process.pid);
+        continue;
+      }
 
-      while (queue.length > 0) {
-        let process = queue.shift();
+      if (
+        process.status === ProcessStatus.Asleep
+        && process.sleepInfo
+        && process.sleepInfo.start + process.sleepInfo.duration < Game.time
+      ) {
+          process.status = ProcessStatus.Alive;
+          process.sleepInfo = undefined;
+      }
 
-        while (process) {
-          if (!this.getProcessByPID(process.parentPID)) {
-            Logger.debug(`Killing [${process.pid}] ${process.constructor.name}, can't find parent [${process.parentPID}]`);
-            process.stop();
-          }
-
-          if (
-            process.status === ProcessStatus.Asleep
-            && process.sleepInfo
-            && process.sleepInfo.start + process.sleepInfo.duration < Game.time
-          ) {
-            process.status = ProcessStatus.Alive;
-            process.sleepInfo = undefined;
-          }
-
-          if (process.status === ProcessStatus.Alive) {
-            Logger.debug(`Running [${process.pid}] ${process.constructor.name}`);
-            process.run();
-          }
-
-          process = queue.shift();
-        }
+      if (process.status === ProcessStatus.Alive) {
+        Logger.debug(`Running [${process.pid}] ${process.constructor.name}`);
+        process.run();
       }
     }
   }
@@ -267,35 +255,4 @@ export class Kernel {
   }
 
   //#endregion
-}
-
-export abstract class Process {
-  constructor(parentPID: number, pid = Kernel.getNextPID(), status = ProcessStatus.Alive) {
-    this.parentPID = parentPID;
-    this.pid = pid;
-    this.status = status;
-  }
-
-  public abstract run(): void;
-
-  public setMemory(memory: Object) {
-    this.memory = memory;
-  }
-
-  public stop() {
-    Kernel.killProcess(this.pid);
-  }
-}
-
-class ProcessRegistry {
-  private static readonly registry: { [processName: string]: ProcessConstructor | undefined } = {};
-
-  public static fetch(processName: string) {
-    return this.registry[processName];
-  }
-
-  public static register(constructor: ProcessConstructor) {
-    Logger.debug(`Registering ${constructor.name}`);
-    this.registry[constructor.name] = constructor;
-  }
 }
