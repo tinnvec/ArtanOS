@@ -4,6 +4,7 @@ import { HierarchProcess } from 'processes/HierarchProcess';
 import { ErrorMapper } from 'utils/ErrorMapper';
 import { Logger } from 'utils/Logger';
 
+import 'Commands';
 import 'extensions/RoomVisual/RoomVisual';
 
 declare global {
@@ -26,6 +27,10 @@ declare global {
     structure(x: number, y: number, type: string, opts?: { opacity?: number}): RoomVisual;
     test(): RoomVisual;
   }
+
+  // Commands
+  function clearMemory(): void;
+  function showMemory(): void;
 }
 
 function memtest() {

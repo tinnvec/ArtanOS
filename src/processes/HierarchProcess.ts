@@ -8,7 +8,7 @@ type HierarchProcessMemory = {
   mainBaseProcesses: { [roomName: string]: number }
 };
 
-//#region
+//#endregion
 
 @registerProcess
 export class HierarchProcess extends Process {
